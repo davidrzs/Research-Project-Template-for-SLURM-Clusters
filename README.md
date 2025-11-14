@@ -68,134 +68,6 @@ python submit.py --config configs/hello_world.yaml
 # Check job status
 squeue -u $USER
 
-# View output in real-time
-tail -f outputs/hello_world_*/slurm-*.out
-
-# Check results
-ls outputs/hello_world_*/
-```
-
-## Cluster-Specific Configuration
-
-### ETH Zurich Euler Cluster
-
-This section contains Euler-specific configuration. If using a different SLURM cluster, adjust GPU types, modules, and storage paths accordingly.
-
-#### Available GPU Types
-
-Euler provides several GPU types for different workloads:
-
-| GPU Type | SLURM Name | Memory | Best For | Example Config |
-|----------|------------|--------|----------|----------------|
-| NVIDIA A100 | `nvidia_a100_80gb:1` | 80GB | Large models, training | `gpus: "nvidia_a100_80gb:1"` |
-| NVIDIA V100 | `nvidia_v100_32gb:1` | 32GB | Medium models | `gpus: "nvidia_v100_32gb:1"` |
-| NVIDIA GeForce RTX | `nvidia_geforce_rtx_3090:1` | 24GB | Inference, fine-tuning | `gpus: "nvidia_geforce_rtx_3090:1"` |
-| NVIDIA Titan RTX | `nvidia_geforce_rtx_titan_rtx:1` | 24GB | General purpose | `gpus: "nvidia_geforce_rtx_titan_rtx:1"` |
-
-**Note**: GPU names may vary. Check current availability with:
-```bash
-sinfo -o "%40N %15G" | grep gpu
-```
-
-**Requesting multiple GPUs**:
-```yaml
-slurm:
-  gpus: "nvidia_a100_80gb:2"  # Request 2 A100 GPUs
-```
-
-#### Modules to Load
-
-Edit `load-env.sh` and uncomment the modules you need:
-
-```bash
-# For GPU workloads (CUDA support):
-module load stack/2024-06 python_cuda/3.11.6
-
-# For external network access (Hugging Face, wandb):
-module load eth_proxy
-
-# For development (VSCode server):
-module load code-server
-```
-
-Check available modules:
-```bash
-module avail
-module spider python
-```
-
-#### Storage and Quotas
-
-- **Home directory** (`$HOME`): 50GB limit, backed up
-  - Use for code, configs, small files
-- **Scratch directory** (`$SCRATCH`): 2.5TB limit, NOT backed up
-  - Use for models, datasets, caches, experiment outputs
-  - Files deleted after 15 days of inactivity
-
-**Important**: This template redirects all caches to `$SCRATCH` via `load-env.sh`:
-```bash
-export HF_HOME="$SCRATCH/.cache/huggingface"
-export TORCH_HOME="$SCRATCH/.cache/torch"
-export WANDB_CACHE_DIR="$SCRATCH/.cache/wandb"
-```
-
-#### Time Limits and Partitions
-
-Jobs are automatically assigned to partitions based on requested time:
-
-| Time Requested | Partition | Max Time | Typical Use |
-|----------------|-----------|----------|-------------|
-| < 4h | `*.4h` | 4 hours | Quick experiments, debugging |
-| 4h - 24h | `*.24h` | 24 hours | Standard training |
-| > 24h | `*.120h` | 120 hours | Long training runs |
-
-Specify time in config:
-```yaml
-slurm:
-  time: "04:00:00"  # 4 hours (HH:MM:SS)
-  time: "1-12:00:00"  # 1 day, 12 hours (DD-HH:MM:SS)
-```
-
-#### Memory Guidelines
-
-Rule of thumb for memory per CPU:
-
-- **Light compute**: 4-8GB per CPU
-- **Standard ML**: 8-16GB per CPU
-- **Large models**: 16-32GB per CPU
-- **Very large/data-intensive**: 32-64GB per CPU
-
-```yaml
-slurm:
-  mem_per_cpu: "16G"  # 16GB per CPU
-  cpus_per_task: 4     # Total: 64GB
-```
-
-#### Proxy for External Access
-
-If downloading models/data or using wandb, load the proxy module:
-
-```bash
-# In load-env.sh or before running
-module load eth_proxy
-```
-
-Without the proxy, external downloads will fail.
-
-#### Checking Cluster Status
-
-```bash
-# Check GPU availability
-sinfo -p gpu.4h -o "%20P %5a %10l %6D %6t %20N %20G"
-
-# Your job queue
-squeue -u $USER
-
-# Cluster load
-squeue -p gpu.4h
-
-# Your storage quota
-lquota
 ```
 
 ## Creating Your Own Experiments
@@ -418,23 +290,9 @@ for config in configs/sweep_*.yaml; do
 done
 ```
 
-## Best Practices
-
-1. **Always use `--dry-run` first** to verify your submission
-2. **Set seed in configs** for reproducibility
-3. **Check git status** before running experiments (metadata tracks dirty repos)
-4. **Use descriptive config names** (they become output directory names)
-5. **Monitor first run** to ensure it works before parameter sweeps
-6. **Save configs to outputs** (done automatically) for reproducibility
 
 ## Troubleshooting
 
-### Job fails immediately
-
-Check `slurm-*.err` in the output directory and verify:
-- Modules are loaded correctly in `load-env.sh`
-- API keys are set in `.env`
-- Dependencies are installed (`uv sync`)
 
 ### Cache directory quota exceeded
 
@@ -475,6 +333,88 @@ The template automatically tracks:
 - Whether working directory is clean
 
 This metadata is saved in `metadata.json` for reproducibility.
+
+## Cluster-Specific Configuration
+
+### ETH Zurich Euler Cluster
+
+This section contains Euler-specific configuration. If using a different SLURM cluster, adjust GPU types, modules, and storage paths accordingly.
+
+#### Available GPU Types
+
+Euler provides several GPU types for different workloads:
+
+| GPU Type | SLURM Name | Memory | Best For |
+|----------|------------|--------|----------|
+| NVIDIA A100 | `nvidia_a100_80gb:1` | 80GB | Large models, training |
+| NVIDIA V100 | `nvidia_v100_32gb:1` | 32GB | Medium models |
+| NVIDIA GeForce RTX 3090 | `nvidia_geforce_rtx_3090:1` | 24GB | Inference, fine-tuning |
+| NVIDIA Titan RTX | `nvidia_geforce_rtx_titan_rtx:1` | 24GB | General purpose |
+
+Check current availability:
+```bash
+sinfo -o "%40N %15G" | grep gpu
+```
+
+Request GPUs in config:
+```yaml
+slurm:
+  gpus: "nvidia_a100_80gb:1"  # Single GPU
+  gpus: "nvidia_a100_80gb:2"  # Multiple GPUs
+```
+
+#### Modules to Load
+
+Edit `load-env.sh` and uncomment the modules you need:
+
+```bash
+# For GPU workloads (CUDA support):
+module load stack/2024-06 python_cuda/3.11.6
+
+# For external network access (Hugging Face, wandb):
+module load eth_proxy
+
+# For development (VSCode server):
+module load code-server
+```
+
+Check available modules:
+```bash
+module avail
+module spider python
+```
+
+#### Storage and Quotas
+
+- **Home directory** (`$HOME`): 50GB limit, backed up
+  - Use for code, configs, small files
+- **Scratch directory** (`$SCRATCH`): 2.5TB limit, NOT backed up
+  - Use for models, datasets, caches, experiment outputs
+
+**Important**: This template redirects all caches to `$SCRATCH` via `load-env.sh`:
+```bash
+export HF_HOME="$SCRATCH/.cache/huggingface"
+export TORCH_HOME="$SCRATCH/.cache/torch"
+export WANDB_CACHE_DIR="$SCRATCH/.cache/wandb"
+```
+
+#### Memory Configuration
+
+Configure memory in your SLURM config:
+```yaml
+slurm:
+  mem_per_cpu: "16G"    # Memory per CPU
+  cpus_per_task: 4      # Number of CPUs
+```
+
+#### Proxy for External Access
+
+If downloading models/data or using wandb, load the proxy module:
+```bash
+module load eth_proxy
+```
+
+
 
 ## License
 
