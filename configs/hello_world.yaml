@@ -1,0 +1,28 @@
+# Hello World example configuration
+# This demonstrates the structure of a config file for experiments
+
+# Script to run (required)
+script: src/hello_world.py
+
+# SLURM configuration
+slurm:
+  job_name: hello_world
+  time: "00:30:00"           # 30 minutes
+  mem_per_cpu: "4G"          # 4GB per CPU
+  cpus_per_task: 1
+  gpus: null                 # No GPU needed for this example
+  # Optional: uncomment to request GPU
+  # gpus: "rtx_3090:1"       # Request 1 RTX 3090
+  # gpus: "a100:1"           # Request 1 A100
+
+# Experiment configuration
+seed: 42
+
+# Weights & Biases configuration
+wandb:
+  enabled: true
+  project: "slurm-experiments"
+  # Optional: specify run name
+  # name: "hello-world-test"
+  # Optional: add tags
+  # tags: ["test", "hello-world"]
